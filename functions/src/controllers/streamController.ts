@@ -119,12 +119,6 @@ exports.getStream = async (req, res) => {
       });
       return;
     } else {
-      await userRef.update({
-        rateLimitLeft: newRateLimitLeft,
-        lastVisit: currentFirestoreTime,
-        visitCount: newVisitCount,
-      });
-
       res.status(200).send({
         status: "success",
         message: resMessage,
@@ -133,6 +127,13 @@ exports.getStream = async (req, res) => {
         rate_limit_left: newRateLimitLeft,
         steam_seq: 0,
       });
+
+      await userRef.update({
+        rateLimitLeft: newRateLimitLeft,
+        lastVisit: currentFirestoreTime,
+        visitCount: newVisitCount,
+      });
+
       return;
     }
   }
