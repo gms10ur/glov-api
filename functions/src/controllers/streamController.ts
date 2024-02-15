@@ -46,19 +46,24 @@ exports.getStream = async (req, res) => {
       rateLimitLeft: 4,
       visitCount: 0,
       lastVisit: currentFirestoreTime,
-      streamSeq: 0,
     };
     await userRef.set(user);
   } else {
     const userData = userDoc.data();
-    const steamSeq = userData.streamSeq;
-    const rateLimitLeft = userData.rateLimitLeft;
-    const lastVisit = userData.lastVisit;
+    const rateLimitLeft = userData?.rateLimitLeft ? userData.rateLimitLeft : 4;
+    const lastVisit = userData?.lastVisit
+      ? userData.lastVisit
+      : currentFirestoreTime;
+
     const lastVisitTimestamp = lastVisit.toDate().getTime();
     const currentTimestamp = currentFirestoreTime.toDate().getTime();
     const timeDifference = currentTimestamp - lastVisitTimestamp;
-    const newLastVisit = currentFirestoreTime;
-    const newVisitCount = userData.visitCount + 1;
+    const newVisitCount = isStream
+      ? 1
+      : userData?.visitCount
+      ? userData.visitCount + 1
+      : 1;
+
     let newRateLimitLeft = rateLimitLeft - 1;
     if (timeDifference < 60000) {
       if (newRateLimitLeft < 1) {
@@ -72,16 +77,10 @@ exports.getStream = async (req, res) => {
       newRateLimitLeft = 4;
     }
 
-    await userRef.update({
-      rateLimitLeft: newRateLimitLeft,
-      lastVisit: newLastVisit,
-      visitCount: newVisitCount,
-    });
-
     const resMessage =
       "Welcome USER_" +
       findNumbers +
-      " ! You are in group " +
+      "! You are in group " +
       group +
       " and you have visited " +
       newVisitCount +
@@ -95,14 +94,47 @@ exports.getStream = async (req, res) => {
     });
     const joke = jokeResponse.data.joke;
 
-    res.status(200).send({
-      status: "success",
-      message: resMessage,
-      joke: joke,
-      group: group,
-      rate_limit_left: newRateLimitLeft,
-      steam_seq: steamSeq,
-    });
+    if (isStream) {
+      // if stream is true, send the payload 5 times with 1 second interval
+      for (let i = 0; i < 5; i++) {
+        const streamData = {
+          status: "success",
+          message: resMessage,
+          joke: joke,
+          group: group,
+          rate_limit_left: newRateLimitLeft,
+          steam_seq: i + 1,
+        };
+
+        setTimeout(() => {
+          //   res.status(200).send(streamData);
+          res.status(200).write(JSON.stringify(streamData));
+        }, 1000 * i);
+      }
+      res.status(200).end();
+      await userRef.update({
+        rateLimitLeft: newRateLimitLeft,
+        lastVisit: currentFirestoreTime,
+        visitCount: newVisitCount,
+      });
+      return;
+    } else {
+      await userRef.update({
+        rateLimitLeft: newRateLimitLeft,
+        lastVisit: currentFirestoreTime,
+        visitCount: newVisitCount,
+      });
+
+      res.status(200).send({
+        status: "success",
+        message: resMessage,
+        joke: joke,
+        group: group,
+        rate_limit_left: newRateLimitLeft,
+        steam_seq: 0,
+      });
+      return;
+    }
   }
 };
 
