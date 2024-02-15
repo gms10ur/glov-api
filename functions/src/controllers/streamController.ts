@@ -38,8 +38,9 @@ exports.getStream = async (req, res) => {
 
   const userRef = admin.firestore().collection("users").doc(userID.toString());
   const userDoc = await userRef.get();
-  let userData = null;
-  if (!userDoc.exists) {
+  const isExists = userDoc.exists;
+  const userData = isExists ? userDoc.data() : null;
+  if (!isExists) {
     // Create user
     const user = {
       userID: userID,
@@ -48,22 +49,15 @@ exports.getStream = async (req, res) => {
       visitCount: 0,
       lastVisit: currentFirestoreTime,
     };
-    await userRef.set(user);
+    userRef.set(user);
   }
-  userData = userDoc.data();
-  const rateLimitLeft = userData?.rateLimitLeft ? userData.rateLimitLeft : 4;
-  const lastVisit = userData?.lastVisit
-    ? userData.lastVisit
-    : currentFirestoreTime;
+  const rateLimitLeft = isExists ? userData.rateLimitLeft : 4;
+  const lastVisit = isExists ? userData.lastVisit : currentFirestoreTime;
 
   const lastVisitTimestamp = lastVisit.toDate().getTime();
   const currentTimestamp = currentFirestoreTime.toDate().getTime();
   const timeDifference = currentTimestamp - lastVisitTimestamp;
-  const newVisitCount = isStream
-    ? 1
-    : userData?.visitCount
-    ? userData.visitCount + 1
-    : 1;
+  const newVisitCount = isStream ? 1 : isExists ? userData.visitCount + 1 : 1;
 
   let newRateLimitLeft = rateLimitLeft - 1;
   if (timeDifference < 60000) {
@@ -75,9 +69,8 @@ exports.getStream = async (req, res) => {
       return;
     }
   } else {
-    newRateLimitLeft = 4;
+    newRateLimitLeft = 3;
   }
-
   const resMessage =
     "Welcome USER_" +
     findNumbers +
