@@ -100,12 +100,11 @@ exports.getStream = async (req, res) => {
         steam_seq: i + 1,
       };
 
-      setTimeout(() => {
-        //   res.status(200).send(streamData);
-        res.status(200).write(JSON.stringify(streamData));
-      }, 1000 * i);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      res.write("data: " + JSON.stringify(streamData) + "\n\n");
     }
-    res.status(200).end();
+    res.end();
+
     await userRef.update({
       rateLimitLeft: newRateLimitLeft,
       lastVisit: currentFirestoreTime,
