@@ -67,7 +67,7 @@ exports.getStream = async (req, res) => {
 
   let newRateLimitLeft = rateLimitLeft - 1;
   if (timeDifference < 60000) {
-    if (newRateLimitLeft < 1) {
+    if (newRateLimitLeft < 0) {
       res.status(429).send({
         status: "fail",
         message: "Rate limit exceeded",
